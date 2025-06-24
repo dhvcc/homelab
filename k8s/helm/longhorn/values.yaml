@@ -1,0 +1,23 @@
+global:
+  cattle:
+    systemDefaultRegistry: ""
+
+defaultSettings:
+  defaultReplicaCount: "2"
+
+persistence:
+  defaultClass: true
+  defaultClassReplicaCount: 2
+
+service:
+  ui:
+    type: ClusterIP
+    nodePort: null
+    annotations: {}
+
+longhornUI:
+  replicas: 2
+
+ingress:
+  enabled: false
+

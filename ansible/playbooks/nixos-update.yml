@@ -1,0 +1,39 @@
+---
+- name: Update NixOS configuration
+  hosts: k8s_control_plane
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Render NixOS configuration
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/nixos/configuration.nix.j2"
+        dest: /etc/nixos/configuration.nix
+        mode: "0644"
+        backup: true
+      register: config_changed
+
+    - name: Rebuild NixOS
+      ansible.builtin.command: nixos-rebuild switch
+      when: config_changed.changed
+
+    - name: Reset k3s cluster data
+      when: reset_k3s | default(false) | bool
+      block:
+        - name: Stop k3s
+          ansible.builtin.systemd:
+            name: k3s
+            state: stopped
+
+        - name: Nuke k3s data
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - /var/lib/rancher/k3s
+            - /var/lib/kubelet
+            - /var/lib/cni
+
+        - name: Start k3s
+          ansible.builtin.systemd:
+            name: k3s
+            state: started

@@ -1,0 +1,4 @@
+apiVersion: v2
+name: homelab-custom-dashboards
+description: A chart that deploys custom dashboards to Grafana.
+version: 0.1.0

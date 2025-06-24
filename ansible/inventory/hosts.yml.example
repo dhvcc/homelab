@@ -1,0 +1,17 @@
+all:
+  vars:
+    ansible_user: your_user
+    ansible_password: your_password
+    ansible_become_password: your_password
+  children:
+    k8s_control_plane:
+      hosts:
+        node1:
+          ansible_host: 192.168.1.10
+          cloudflare_ssh_tunnel_token: "your-ssh-tunnel-token-for-node1"
+        node2:
+          ansible_host: 192.168.1.11
+          cloudflare_ssh_tunnel_token: "your-ssh-tunnel-token-for-node2"
+        node3:
+          ansible_host: 192.168.1.12
+          cloudflare_ssh_tunnel_token: "your-ssh-tunnel-token-for-node3"

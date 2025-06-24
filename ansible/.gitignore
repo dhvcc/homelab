@@ -1,0 +1,13 @@
+*.retry
+*.log
+.vault_pass
+vault_pass.txt
+
+# Protect actual credentials - use example files instead
+inventory/hosts.yml
+inventory/group_vars/all.yml
+
+# Allow example templates
+!inventory/hosts.yml.example
+!inventory/group_vars/all.yml.example
+

@@ -1,0 +1,190 @@
+---
+- name: Install NixOS from configuration asset
+  hosts: k8s_control_plane
+  become: true
+  gather_facts: false
+  vars:
+    target_disk: "/dev/sda"
+    tmp_dir: "/tmp/nixos-install"
+    install_root: "/mnt"
+  pre_tasks:
+    - name: Ensure python3 is present on live system
+      ansible.builtin.raw: |
+        if ! command -v python3 >/dev/null 2>&1; then
+          /run/current-system/sw/bin/nix-env -iA nixos.python3 >/tmp/python-bootstrap.log 2>&1
+        fi
+      changed_when: false
+
+    - name: Discover python interpreter path
+      ansible.builtin.raw: |
+        for candidate in /run/current-system/sw/bin/python3 /nix/var/nix/profiles/default/bin/python3 /usr/bin/python3; do
+          if [ -x "$candidate" ]; then
+            printf '%s\n' "$candidate"
+            exit 0
+          fi
+        done
+        command -v python3
+      register: detected_python
+      changed_when: false
+
+    - name: Set interpreter fact
+      ansible.builtin.set_fact:
+        ansible_python_interpreter: "{{ detected_python.stdout_lines | last | trim }}"
+      when: detected_python.stdout_lines | length > 0
+
+    - name: Reset SSH connection after interpreter change
+      ansible.builtin.meta: reset_connection
+  tasks:
+    - name: Ensure cluster variables exist
+      ansible.builtin.assert:
+        that:
+          - seed_host | default('') | length > 0
+          - hostvars[seed_host]['ansible_host'] | default('') | length > 0
+          - k3s_token | default('') | length > 0
+          - cloudflare_ssh_tunnel_token | default('') | length > 0
+        fail_msg: "seed_host, k3s_token (group var) and cloudflare_ssh_tunnel_token (host var) must be provided."
+
+    - name: Validate disk selection
+      ansible.builtin.assert:
+        that:
+          - target_disk | length > 0
+        fail_msg: "Please set target_disk to the block device you want to install to (e.g. /dev/sda)."
+
+    - name: Ensure install workspace exists
+      ansible.builtin.file:
+        path: "{{ tmp_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Determine partition suffix
+      ansible.builtin.set_fact:
+        partition_suffix: "{{ 'p' if target_disk | regex_search('\\\\d$') else '' }}"
+
+    - name: Compute partition device names
+      ansible.builtin.set_fact:
+        efi_partition: "{{ target_disk }}{{ partition_suffix }}1"
+        swap_partition: "{{ target_disk }}{{ partition_suffix }}2"
+        root_partition: "{{ target_disk }}{{ partition_suffix }}3"
+
+
+    - name: Install prerequisite tools via nix-env
+      ansible.builtin.shell: |
+        set -euo pipefail
+        nix-env -iA nixos.curl nixos.kexec-tools nixos.gptfdisk
+      args:
+        executable: /run/current-system/sw/bin/bash
+
+    - name: Render NixOS configuration bundle
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/nixos/configuration.nix.j2"
+        dest: "{{ tmp_dir }}/configuration.nix"
+        mode: "0644"
+
+    - name: Disable existing swap devices
+      ansible.builtin.command: swapoff -a
+      ignore_errors: true
+
+    - name: Wipe existing partition table
+      ansible.builtin.shell: |
+        set -euo pipefail
+        disk="{{ target_disk }}"
+        sgdisk --zap-all "$disk"
+        sync
+      args:
+        executable: /run/current-system/sw/bin/bash
+
+    - name: Create EFI, swap and root partitions
+      ansible.builtin.shell: |
+        set -euo pipefail
+        disk="{{ target_disk }}"
+        sgdisk -n1:1MiB:+512MiB -t1:ef00 -c1:"nixos-boot" "$disk"
+        sgdisk -n2:0:+8GiB -t2:8200 -c2:"nixos-swap" "$disk"
+        sgdisk -n3:0:0 -t3:8300 -c3:"nixos-root" "$disk"
+        sync
+      args:
+        executable: /run/current-system/sw/bin/bash
+
+    - name: Wait for partition devices to settle
+      ansible.builtin.command: udevadm settle
+
+    - name: Format EFI partition
+      ansible.builtin.shell: |
+        set -euo pipefail
+        dev={{ efi_partition }}
+        wipefs -a "$dev"
+        mkfs.fat -F32 -n nixos-boot "$dev"
+      args:
+        executable: /run/current-system/sw/bin/bash
+
+    - name: Format root partition
+      ansible.builtin.shell: |
+        set -euo pipefail
+        dev={{ root_partition }}
+        wipefs -a "$dev"
+        mkfs.ext4 -L nixos-root "$dev"
+      args:
+        executable: /run/current-system/sw/bin/bash
+
+    - name: Format swap partition
+      ansible.builtin.shell: |
+        set -euo pipefail
+        dev={{ swap_partition }}
+        wipefs -a "$dev"
+        mkswap -L nixos-swap "$dev"
+      args:
+        executable: /run/current-system/sw/bin/bash
+
+
+    - name: Create root mountpoint
+      ansible.builtin.file:
+        path: "{{ install_root }}"
+        state: directory
+        mode: "0755"
+
+    - name: Mount root filesystem
+      ansible.builtin.shell: |
+        set -euo pipefail
+        mount -t ext4 /dev/disk/by-label/nixos-root {{ install_root }}
+      args:
+        executable: /run/current-system/sw/bin/bash
+
+    - name: Create boot mountpoint
+      ansible.builtin.file:
+        path: "{{ install_root }}/boot"
+        state: directory
+        mode: "0755"
+
+    - name: Mount EFI partition
+      ansible.builtin.shell: |
+        set -euo pipefail
+        mount -t vfat -o rw,noatime /dev/disk/by-label/nixos-boot {{ install_root }}/boot
+      args:
+        executable: /run/current-system/sw/bin/bash
+
+    - name: Enable swap partition
+      ansible.builtin.command: swapon {{ swap_partition }}
+      ignore_errors: true
+
+    - name: Generate NixOS hardware configuration
+      ansible.builtin.command: nixos-generate-config --root {{ install_root }}
+
+    - name: Apply downloaded configuration
+      ansible.builtin.copy:
+        src: "{{ tmp_dir }}/configuration.nix"
+        dest: "{{ install_root }}/etc/nixos/configuration.nix"
+        remote_src: true
+        mode: "0644"
+
+    - name: Inspect mount state before install
+      ansible.builtin.command: mount
+      register: current_mounts
+      changed_when: false
+
+    - name: Show relevant mountpoints
+      ansible.builtin.debug:
+        msg: "{{ current_mounts.stdout_lines | select('search', install_root) | list }}"
+
+    - name: Install NixOS
+      ansible.builtin.command: nixos-install --root {{ install_root }} --no-root-passwd --show-trace
+
+

@@ -1,0 +1,149 @@
+alertmanager:
+  enabled: false
+
+grafana:
+  enabled: true
+  adminPassword: admin
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - grafana.dhvcc.me
+    tls:
+      - secretName: cloudflare-tls
+        hosts:
+          - grafana.dhvcc.me
+  grafana.ini:
+    news:
+      news_feed_enabled: false
+    analytics:
+      reporting_enabled: false
+      check_for_updates: false
+    whats_new:
+    help:
+      enabled: false
+    paths:
+      home_page: /dashboards
+    dashboards:
+      default_home_dashboard_path: ""
+    users:
+      allow_sign_up: false
+      home_page: /dashboards
+    auth.anonymous:
+      enabled: true
+      org_role: Admin
+    auth:
+      disable_login_form: true
+    auth.basic:
+      enabled: false
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          uid: prometheus
+          access: proxy
+          url: http://kube-prometheus-stack-prometheus.homelab.svc.cluster.local:9090
+          isDefault: true
+          editable: true
+        - name: Loki
+          type: loki
+          uid: loki
+          access: proxy
+          url: http://loki.homelab.svc.cluster.local:3100
+          isDefault: false
+          editable: true
+  persistence:
+    enabled: true
+    size: 5Gi
+  metrics:
+    enabled: true
+  serviceMonitor:
+    enabled: true
+    labels:
+      release: kube-prometheus-stack
+    interval: 30s
+    scrapeTimeout: 10s
+    path: /metrics
+    scheme: http
+  initChownData:
+    enabled: false
+  sidecar:
+    skipTlsVerify: true
+    dashboards:
+      enabled: true
+    datasources:
+      enabled: false
+
+  extraVolumes:
+    - name: grafana-lokiexplore-app
+      emptyDir: {}
+  extraInitContainers:
+    - name: download-grafana-lokiexplore
+      image: curlimages/curl:8.4.0
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+      command:
+        - sh
+        - -c
+        - |
+          set -euo pipefail
+          mkdir -p /plugins
+          curl -L "https://github.com/grafana/logs-drilldown/releases/download/v1.0.31/grafana-lokiexplore-app-1.0.31.zip" -o /tmp/plugin.zip
+          unzip -q /tmp/plugin.zip -d /tmp/plugin
+          cp -R /tmp/plugin/* /plugins/
+      volumeMounts:
+        - name: grafana-lokiexplore-app
+          mountPath: /plugins
+  extraVolumeMounts:
+    - name: grafana-lokiexplore-app
+      mountPath: /var/lib/grafana/plugins/grafana-lokiexplore-app
+      readOnly: false
+
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+    additionalScrapeConfigs:
+      - job_name: 'kubernetes-pods'
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+
+kubeStateMetrics:
+  enabled: true
+
+nodeExporter:
+  enabled: true
+
+prometheusOperator:
+  enabled: true
+

@@ -1,0 +1,178 @@
+{ config, pkgs, lib, ... }:
+
+{%- set seed_address = hostvars[seed_host]['ansible_host'] %}
+{%- set node_address = hostvars[inventory_hostname]['ansible_host'] %}
+{%- set is_seed = inventory_hostname == seed_host %}
+
+let
+  hostname = "{{ inventory_hostname }}";
+  nodeAddress = "{{ node_address }}";
+  seedAddress = "{{ seed_address }}";
+  isSeed = {{ 'true' if is_seed else 'false' }};
+in
+{
+  imports = [
+    ./hardware-configuration.nix
+  ];
+
+  system.stateVersion = "24.11";
+  # time.timeZone = "UTC";
+
+  networking = {
+    hostName = hostname;
+    networkmanager.enable = true;
+    firewall = {
+      enable = true;
+      allowedTCPPorts = [ 22 9100 6443 10250 10255 2379 2380 30000 32767 ];
+      allowedUDPPorts = [ 8472 ];
+    };
+  };
+
+  services.automatic-timezoned.enable = true;
+
+  services.openssh = {
+    enable = true;
+    settings = {
+      PermitRootLogin = "prohibit-password";
+      PasswordAuthentication = true;
+    };
+  };
+
+  users.users.nixos = {
+    isNormalUser = true;
+    description = "k3s operator";
+    extraGroups = [ "wheel" "networkmanager" ];
+    shell = pkgs.zsh;
+    initialPassword = "changeme";  # Change on first login
+  };
+  security.sudo.wheelNeedsPassword = false;
+
+  programs.zsh.enable = true;
+
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+
+  environment.systemPackages = with pkgs; [
+    vim
+    git
+    curl
+    wget
+    tmux
+    htop
+    python3
+    sqlite-interactive
+    kubectl
+    k9s
+    kubernetes-helm
+    k3s
+    cloudflared
+    openiscsi
+    nfs-utils
+    sysbench
+  ];
+
+  # Longhorn requires iscsi binaries at standard FHS paths
+  system.activationScripts.longhorn-iscsi = ''
+    mkdir -p /usr/sbin
+    ln -sf ${pkgs.openiscsi}/bin/iscsiadm /usr/sbin/iscsiadm
+    ln -sf ${pkgs.openiscsi}/bin/iscsid /usr/sbin/iscsid
+  '';
+
+  # Longhorn requirements
+  services.openiscsi = {
+    enable = true;
+    name = "${config.networking.hostName}-initiator";
+  };
+
+  boot.kernelModules = [ "iscsi_tcp" ];
+
+  environment.etc."rancher/k3s/token" = {
+    text = "{{ k3s_token }}";
+    mode = "0600";
+  };
+
+  users.groups.cloudflared = { };
+  users.users.cloudflared = {
+    isSystemUser = true;
+    group = "cloudflared";
+  };
+
+  environment.etc."cloudflared/tunnel.env" = {
+    text = "CLOUDFLARE_SSH_TOKEN={{ cloudflare_ssh_tunnel_token }}\n";
+    mode = "0600";
+    user = "cloudflared";
+    group = "cloudflared";
+  };
+
+  systemd.services."cloudflared-ssh" = {
+    description = "Cloudflare SSH tunnel";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    serviceConfig = {
+      EnvironmentFile = "/etc/cloudflared/tunnel.env";
+      ExecStart = "${pkgs.cloudflared}/bin/cloudflared --no-autoupdate tunnel run --token $CLOUDFLARE_SSH_TOKEN";
+      Restart = "on-failure";
+      User = "cloudflared";
+      Group = "cloudflared";
+    };
+  };
+
+  services.k3s = {
+    enable = true;
+    role = "server";
+    tokenFile = "/etc/rancher/k3s/token";
+    extraFlags =
+      [
+        "--write-kubeconfig-mode=644"
+        "--disable=traefik"
+        "--tls-san=${hostname}"
+        "--tls-san=${nodeAddress}"
+      ]
+      ++ (if isSeed then [ "--cluster-init" ] else [ "--server https://${seedAddress}:6443" ]);
+  };
+
+  boot.loader = {
+    systemd-boot.enable = true;
+    efi = {
+      canTouchEfiVariables = false;
+      efiSysMountPoint = "/boot";
+    };
+  };
+
+  services.logind = {
+    lidSwitch = "ignore";
+    lidSwitchExternalPower = "ignore";
+    lidSwitchDocked = "ignore";
+    extraConfig = ''
+      HandleLidSwitch=ignore
+      HandleLidSwitchExternalPower=ignore
+      HandleLidSwitchDocked=ignore
+      IdleAction=ignore
+    '';
+  };
+
+  # Disable suspend entirely
+  systemd.targets.sleep.enable = false;
+  systemd.targets.suspend.enable = false;
+  systemd.targets.hibernate.enable = false;
+  systemd.targets.hybrid-sleep.enable = false;
+
+  environment.variables = {
+    KUBECONFIG = "/etc/rancher/k3s/k3s.yaml";
+  };
+
+#   fileSystems."/" = {
+#     device = "/dev/disk/by-label/nixos-root";
+#     fsType = "ext4";
+#   };
+
+#   fileSystems."/boot" = {
+#     device = "/dev/disk/by-label/nixos-boot";
+#     fsType = "vfat";
+#   };
+
+#   swapDevices = [
+#     { device = "/dev/disk/by-label/nixos-swap"; }
+#   ];
+}
+

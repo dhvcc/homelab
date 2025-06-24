@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: homelab-custom-dashboards
+  namespace: homelab
+  labels:
+    - grafana_dashboard: "true"
+data:
+  longhorn.json: |
+    {{ .Files.Get "files/longhorn.json" | nindent 4 }}

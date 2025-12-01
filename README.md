@@ -46,6 +46,7 @@ Per node:
 2. Set password: `passwd nixos`
 3. Run: `ansible-playbook playbooks/nixos-init.yml -i inventory/hosts.yml --limit <node>`
 4. Remove USB and reboot
+5. Change password from default "changeme" set by the config
 
 First node in `k8s_control_plane` is the cluster seed.
 

@@ -17,12 +17,6 @@ helmDefaults:
   force: false
 
 releases:
-  - name: ingress-nginx
-    namespace: homelab
-    chart: ingress-nginx/ingress-nginx
-    values:
-      - ./ingress-nginx/values.yaml
-
   - name: loki
     namespace: homelab
     chart: grafana/loki

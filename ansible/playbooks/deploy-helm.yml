@@ -100,6 +100,7 @@
       command: |
         helm upgrade --install {{ helm_release }} {{ chart_path }} \
           --namespace {{ release_info.namespace }} \
+          --atomic \
           --values {{ helm_repo_path }}/{{ helm_release }}/values.yaml \
           --wait \
           --timeout {{ helmfile.helmDefaults.timeout }}s

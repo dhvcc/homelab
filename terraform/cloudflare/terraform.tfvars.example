@@ -1,0 +1,12 @@
+cloudflare_api_token  = "your-api-token"
+cloudflare_account_id = "your-account-id"
+domain                = "yourdomain.com"
+ingress_tunnel_secret = "random-secret-for-ingress-tunnel"
+
+ssh_nodes = {
+  node1 = { tunnel_secret = "random-secret-1" }
+  node2 = { tunnel_secret = "random-secret-2" }
+}
+
+allowed_emails = ["you@example.com"]
+

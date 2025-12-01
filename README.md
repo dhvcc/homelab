@@ -11,10 +11,11 @@ HA k3s cluster on NixOS, managed with Ansible and Helmfile.
 
 ## TODO
 - [ ] Fix loki-canary drop rules
-- [ ] TF For CF
-- [ ] Better support for custom dashboards
+- [x] TF For CF
+- [x] Better support for custom dashboards
 - [ ] Better way of declaring plugin GH links for Grafana
 - [ ] Better helm install and manage flow
+- [ ] Home Assistant + IoT network bridge
 
 
 ## Stack
@@ -87,4 +88,33 @@ Add to `~/.ssh/config`:
 ```
 Host node1.domain.com
   ProxyCommand cloudflared access ssh --hostname %h
+```
+
+## Terraform
+
+Infrastructure-as-code for external services.
+
+```bash
+cd terraform/cloudflare
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars
+terraform init && terraform apply
+```
+
+### Modules
+
+- `cloudflare/` - Tunnels, DNS records, Zero Trust access policies
+- `openwrt/` - Network interface and firewall for IoT bridge (WIP)
+
+#### Note
+OpenWRT: The terraform provider (joneshf/openwrt) is community-maintained and uses LuCI RPC. It's a bit experimental - you may need to enable luci-mod-rpc on the router. If it doesn't work well, manual UCI config is fine:
+
+```
+uci set network.iot=interface
+uci set network.iot.proto='static'
+uci set network.iot.device='eth1'
+uci set network.iot.ipaddr='192.168.1.250'
+uci set network.iot.netmask='255.255.255.0'
+uci commit network
+/etc/init.d/network restart
 ```

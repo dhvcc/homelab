@@ -1,0 +1,8 @@
+openwrt_host         = "192.168.10.1"
+openwrt_username     = "root"
+openwrt_password     = "your-password"
+iot_interface_device = "eth1"
+iot_ip               = "192.168.1.250"
+iot_netmask          = "255.255.255.0"
+iot_gateway          = "192.168.1.1"
+

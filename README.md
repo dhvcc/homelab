@@ -23,7 +23,6 @@ HA k3s cluster on NixOS, managed with Ansible and Helmfile.
 - **k3s** - lightweight Kubernetes
 - **Cloudflare Tunnels** - zero-trust SSH and ingress access
 - **Longhorn** - distributed block storage
-- **ingress-nginx** - ingress controller
 - **kube-prometheus-stack** - Prometheus, Grafana, Alertmanager, node-exporter
 - **Loki + Promtail** - log aggregation
 

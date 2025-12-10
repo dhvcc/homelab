@@ -1,6 +1,6 @@
 # Homelab
 
-HA k3s cluster on NixOS, managed with Ansible and Helmfile.
+HA k3s cluster on NixOS, managed with Ansible and Helm.
 
 ## Notes
 

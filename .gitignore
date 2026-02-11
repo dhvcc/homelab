@@ -5,3 +5,5 @@
 *.swo
 *~
 values.defaults.yaml
+CLAUDE.md
+AGENTS.md

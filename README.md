@@ -15,6 +15,7 @@ HA k3s cluster on NixOS, managed with Ansible and Helm.
 - [ ] Better support for custom dashboards
 - [ ] Better way of declaring plugin GH links for Grafana
 - [ ] Better helm install and manage flow
+- [x] Home Assistant + IoT network bridge
 
 
 ## Stack
@@ -67,6 +68,42 @@ ansible-playbook playbooks/deploy-helm.yml -i inventory/hosts.yml -e helm_releas
 
 # Cloudflare Tunnel
 ansible-playbook playbooks/deploy-cloudflare-ingress-tunnel.yml -i inventory/hosts.yml
+```
+
+### Optional: Longhorn R2 Backups
+
+For **NEW** Longhorn deployments (recommended - declarative):
+```bash
+# 1. Configure r2_* variables in ansible/inventory/group_vars/all.yml
+# 2. Create secret first
+ansible-playbook playbooks/create-longhorn-r2-secret.yml -i inventory/hosts.yml
+# 3. Edit k8s/helm/longhorn/values.yaml to uncomment and configure defaultBackupStore
+# 4. Deploy Longhorn
+ansible-playbook playbooks/deploy-helm.yml -i inventory/hosts.yml -e helm_release=longhorn
+```
+
+For **EXISTING** Longhorn deployments (runtime configuration):
+```bash
+# 1. Configure r2_* variables in ansible/inventory/group_vars/all.yml
+# 2. Run runtime configuration (includes secret creation and proper waits)
+ansible-playbook playbooks/configure-longhorn-r2-backup.yml -i inventory/hosts.yml
+```
+
+### Optional: Home Network Bridge (IoT Access)
+
+Bridges homelab to home network (192.168.0.0/24) via OpenWRT's 5GHz WiFi radio. Enables Home Assistant to reach IoT devices on the home network.
+
+```bash
+# 1. Add openwrt host to hosts.yml (see hosts.yml.example)
+# 2. Configure home_wifi_ssid and home_wifi_password in group_vars/all.yml
+# 3. Run bridge playbook
+ansible-playbook playbooks/openwrt-home-lan.yml -i inventory/hosts.yml
+```
+
+Traffic is NAT'd — no changes needed on the home network. To revert:
+```bash
+# SSH to OpenWRT, then:
+uci revert wireless; uci revert network; uci revert firewall; /etc/init.d/network restart
 ```
 
 ## Operations

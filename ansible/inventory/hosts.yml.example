@@ -15,3 +15,8 @@ all:
         node3:
           ansible_host: 192.168.1.12
           cloudflare_ssh_tunnel_token: "your-ssh-tunnel-token-for-node3"
+
+    openwrt:
+      hosts:
+        router:
+          ansible_host: 192.168.1.1

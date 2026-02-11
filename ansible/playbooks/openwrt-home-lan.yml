@@ -1,0 +1,108 @@
+- name: Bridge homelab to home network via OpenWRT 5GHz WiFi
+  hosts: openwrt
+  gather_facts: false
+  tasks:
+    - name: Configure 5GHz radio as WiFi STA client
+      raw: |
+        uci set wireless.radio0.disabled='0'
+        uci set wireless.default_radio0.disabled='0'
+        uci set wireless.default_radio0.mode='sta'
+        uci set wireless.default_radio0.network='iot'
+        uci set wireless.default_radio0.ssid='{{ wifi_ssid_to_bridge }}'
+        uci set wireless.default_radio0.encryption='psk2'
+        uci set wireless.default_radio0.key='{{ wifi_password_to_bridge }}'
+        uci commit wireless
+
+    - name: Create iot network interface (DHCP client)
+      raw: |
+        uci set network.iot=interface
+        uci set network.iot.proto='dhcp'
+        uci commit network
+
+    - name: Create iot firewall zone with masquerade (idempotent)
+      raw: |
+        existing=""
+        for section in $(uci show firewall | grep '=zone$' | cut -d'=' -f1); do
+          if [ "$(uci get ${section}.name 2>/dev/null)" = "iot" ]; then
+            existing="$section"
+            break
+          fi
+        done
+        if [ -z "$existing" ]; then
+          uci add firewall zone
+          existing="firewall.@zone[-1]"
+        fi
+        uci set "${existing}.name=iot"
+        uci set "${existing}.network=iot"
+        uci set "${existing}.input=REJECT"
+        uci set "${existing}.output=ACCEPT"
+        uci set "${existing}.forward=REJECT"
+        uci set "${existing}.masq=1"
+        uci commit firewall
+
+    - name: Create LAN to IoT forwarding rule (idempotent)
+      raw: |
+        existing=""
+        for section in $(uci show firewall | grep '=forwarding$' | cut -d'=' -f1); do
+          src=$(uci get "${section}.src" 2>/dev/null)
+          dest=$(uci get "${section}.dest" 2>/dev/null)
+          if [ "$src" = "lan" ] && [ "$dest" = "iot" ]; then
+            existing="$section"
+            break
+          fi
+        done
+        if [ -z "$existing" ]; then
+          uci add firewall forwarding
+          existing="firewall.@forwarding[-1]"
+        fi
+        uci set "${existing}.src=lan"
+        uci set "${existing}.dest=iot"
+        uci commit firewall
+
+    - name: Restart network and wireless (fire-and-forget to survive SSH disconnect)
+      raw: nohup sh -c 'sleep 1; /etc/init.d/network restart; sleep 5; /etc/init.d/firewall restart; sleep 2; wifi reload' >/dev/null 2>&1 &
+
+    - name: Wait for router to come back
+      raw: echo "alive"
+      retries: 30
+      delay: 4
+      register: wait_result
+      until: wait_result is not failed
+
+    - name: Wait for iot interface to get DHCP address
+      raw: |
+        i=0
+        while [ $i -lt 30 ]; do
+          addr=$(ifstatus iot 2>/dev/null | jsonfilter -e '@["ipv4-address"][0].address' 2>/dev/null)
+          if [ -n "$addr" ]; then
+            echo "$addr"
+            exit 0
+          fi
+          i=$((i+1))
+          sleep 2
+        done
+        echo "TIMEOUT: iot interface did not get DHCP address"
+        exit 1
+      register: iot_address
+      changed_when: false
+
+    - name: Verify connectivity to home network gateway
+      raw: ping -c 3 -W 2 192.168.0.1
+      register: ping_result
+      changed_when: false
+
+    - name: Display results
+      debug:
+        msg:
+          - "OpenWRT home network bridge configured!"
+          - ""
+          - "IoT interface address: {{ iot_address.stdout_lines[0] | default('unknown') }}"
+          - "Ping to home gateway (192.168.0.1): OK"
+          - ""
+          - "Homelab nodes can now reach 192.168.0.0/24 via OpenWRT."
+          - "Traffic is NAT'd — home network sees OpenWRT as a regular WiFi client."
+          - ""
+          - "Note: mDNS/discovery won't cross the NAT boundary."
+          - "Use manual IPs for Home Assistant integrations, or add an mDNS reflector later."
+          - ""
+          - "To revert: uci revert wireless; uci revert network; uci revert firewall; /etc/init.d/network restart"

@@ -1,3 +1,15 @@
 seed_host: "{{ groups['k8s_control_plane'][0] }}"
 cloudflare_ingress_tunnel_token: ""
 k3s_token: "your-super-secret-password"
+
+# Optional: Cloudflare R2 for Longhorn backups
+# Uncomment and configure if you want to use R2 as backup target
+# r2_access_key_id: ""
+# r2_secret_access_key: ""
+# r2_account_id: ""
+# r2_bucket_name: "longhorn-backups"
+
+# Optional: Home network bridge via OpenWRT 5GHz WiFi
+# Uncomment and configure to bridge homelab to home IoT network
+# wifi_ssid_to_bridge: "wifi-ssid-to-bridge"
+# wifi_password_to_bridge: "wifi-password-to-bridge"

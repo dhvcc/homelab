@@ -9,12 +9,21 @@ all:
         node1:
           ansible_host: 192.168.1.10
           cloudflare_ssh_tunnel_token: "your-ssh-tunnel-token-for-node1"
+          cloudflare_ssh_ca_pubkey: "ssh-ed25519 AAAA... your-node1-access-ca"
+          cloudflare_ssh_allowed_principals:
+            - "your-cloudflare-access-username"
         node2:
           ansible_host: 192.168.1.11
           cloudflare_ssh_tunnel_token: "your-ssh-tunnel-token-for-node2"
+          cloudflare_ssh_ca_pubkey: "ssh-ed25519 AAAA... your-node2-access-ca"
+          cloudflare_ssh_allowed_principals:
+            - "your-cloudflare-access-username"
         node3:
           ansible_host: 192.168.1.12
           cloudflare_ssh_tunnel_token: "your-ssh-tunnel-token-for-node3"
+          cloudflare_ssh_ca_pubkey: "ssh-ed25519 AAAA... your-node3-access-ca"
+          cloudflare_ssh_allowed_principals:
+            - "your-cloudflare-access-username"
 
     openwrt:
       hosts:

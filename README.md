@@ -118,10 +118,28 @@ Reset k3s on a node (rejoin cluster):
 ansible-playbook playbooks/nixos-update.yml -i inventory/hosts.yml -e reset_k3s=true --limit <node>
 ```
 
-## SSH via Cloudflare
+## SSH via Cloudflare (Short-Lived Certs)
 
-Add to `~/.ssh/config`:
+Set these per control-plane node in `ansible/inventory/hosts.yml`:
+- `cloudflare_ssh_ca_pubkey`
+- `cloudflare_ssh_allowed_principals` (must include your Cloudflare cert principal)
+
+Generate per-node local SSH config blocks (localhost only):
+```bash
+cd ansible
+ansible-playbook playbooks/configure-local-cloudflare-ssh.yml -i inventory/hosts.yml
 ```
-Host node1.domain.com
-  ProxyCommand cloudflared access ssh --hostname %h
+
+This writes explicit entries for each `k8s_control_plane` host in `~/.ssh/config` and keeps cert generation per host/app.
+
+Then connect directly using inventory hostnames:
+```bash
+ssh nixos@<control-plane-ansible_host>
 ```
+
+To see your principal from a generated cert:
+```bash
+ssh-keygen -Lf ~/.cloudflared/<host>-cf_key-cert.pub
+```
+
+Password auth remains enabled by default for rollback (`ssh_password_auth_enabled: true`) and can be disabled later by setting it to `false` and applying `nixos-update.yml`.

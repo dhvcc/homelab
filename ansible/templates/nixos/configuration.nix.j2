@@ -3,12 +3,16 @@
 {%- set seed_address = hostvars[seed_host]['ansible_host'] %}
 {%- set node_address = hostvars[inventory_hostname]['ansible_host'] %}
 {%- set is_seed = inventory_hostname == seed_host %}
+{%- set ssh_allowed_principals = hostvars[inventory_hostname].cloudflare_ssh_allowed_principals | default(cloudflare_ssh_allowed_principals | default([])) %}
 
 let
   hostname = "{{ inventory_hostname }}";
   nodeAddress = "{{ node_address }}";
   seedAddress = "{{ seed_address }}";
   isSeed = {{ 'true' if is_seed else 'false' }};
+  sshPasswordAuthEnabled = {{ 'true' if ssh_password_auth_enabled | default(true) else 'false' }};
+  cloudflareAccessSshCaPubkey = "{{ hostvars[inventory_hostname].cloudflare_ssh_ca_pubkey | default(cloudflare_ssh_ca_pubkey | default('')) }}";
+  cloudflareSshAllowedPrincipals = [ {% for principal in ssh_allowed_principals %}"{{ principal }}"{% if not loop.last %} {% endif %}{% endfor %} ];
 in
 {
   imports = [
@@ -32,10 +36,26 @@ in
 
   services.openssh = {
     enable = true;
-    settings = {
-      PermitRootLogin = "prohibit-password";
-      PasswordAuthentication = true;
-    };
+    settings =
+      {
+        PermitRootLogin = "prohibit-password";
+        PasswordAuthentication = sshPasswordAuthEnabled;
+        KbdInteractiveAuthentication = sshPasswordAuthEnabled;
+      }
+      // lib.optionalAttrs (cloudflareAccessSshCaPubkey != "") {
+        TrustedUserCAKeys = "/etc/ssh/cloudflare-access-ca.pub";
+        AuthorizedPrincipalsFile = "/etc/ssh/auth_principals/%u";
+      };
+  };
+
+  environment.etc."ssh/cloudflare-access-ca.pub" = lib.mkIf (cloudflareAccessSshCaPubkey != "") {
+    text = "${cloudflareAccessSshCaPubkey}\n";
+    mode = "0644";
+  };
+
+  environment.etc."ssh/auth_principals/nixos" = lib.mkIf (cloudflareSshAllowedPrincipals != []) {
+    text = (lib.concatStringsSep "\n" cloudflareSshAllowedPrincipals) + "\n";
+    mode = "0644";
   };
 
   users.users.nixos = {
@@ -176,4 +196,3 @@ in
 #     { device = "/dev/disk/by-label/nixos-swap"; }
 #   ];
 }
-

@@ -1,0 +1,38 @@
+---
+- name: Configure local SSH for Cloudflare Access per node
+  hosts: localhost
+  connection: local
+  become: false
+  gather_facts: false
+  vars:
+    local_ssh_config_path: "{{ lookup('env', 'HOME') + '/.ssh/config' }}"
+    local_ssh_user: "{{ hostvars[groups['k8s_control_plane'][0]].ansible_user | default('nixos') }}"
+    local_cloudflared_bin: "/opt/homebrew/bin/cloudflared"
+
+  tasks:
+    - name: Ensure local ~/.ssh directory exists
+      ansible.builtin.file:
+        path: "{{ lookup('env', 'HOME') + '/.ssh' }}"
+        state: directory
+        mode: "0700"
+
+    - name: Ensure local ~/.ssh/config exists
+      ansible.builtin.file:
+        path: "{{ local_ssh_config_path }}"
+        state: touch
+        mode: "0600"
+
+    - name: Add Cloudflare SSH config block for each control plane host
+      ansible.builtin.blockinfile:
+        path: "{{ local_ssh_config_path }}"
+        marker: "# {mark} HOMELAB CLOUDFLARE SSH {{ item }}"
+        block: |
+          Host {{ hostvars[item].ansible_host }}
+            User {{ local_ssh_user }}
+            ProxyCommand {{ local_cloudflared_bin }} access ssh --hostname %h
+            IdentityFile ~/.cloudflared/%h-cf_key
+            CertificateFile ~/.cloudflared/%h-cf_key-cert.pub
+            IdentitiesOnly yes
+          Match host {{ hostvars[item].ansible_host }} exec "{{ local_cloudflared_bin }} access ssh-gen --hostname %h"
+            User {{ local_ssh_user }}
+      loop: "{{ groups['k8s_control_plane'] }}"

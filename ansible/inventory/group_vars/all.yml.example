@@ -1,5 +1,6 @@
 seed_host: "{{ groups['k8s_control_plane'][0] }}"
 cloudflare_ingress_tunnel_token: ""
+ssh_password_auth_enabled: true
 k3s_token: "your-super-secret-password"
 
 # Optional: Cloudflare R2 for Longhorn backups

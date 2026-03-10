@@ -4,10 +4,16 @@ global:
 
 defaultSettings:
   defaultReplicaCount: "2"
+  nodeDownPodDeletionPolicy: "delete-both-statefulset-and-deployment-pod"
+  autoSalvage: true
+  autoDeletePodWhenVolumeDetachedUnexpectedly: true
+  replicaSoftAntiAffinity: false
+  replicaAutoBalance: "best-effort"
 
 persistence:
   defaultClass: true
   defaultClassReplicaCount: 2
+  disableRevisionCounter: "false"
 
 service:
   ui:
@@ -41,4 +47,3 @@ metrics:
 
 ingress:
   enabled: false
-

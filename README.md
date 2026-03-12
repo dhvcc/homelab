@@ -1,6 +1,6 @@
 # Homelab
 
-HA k3s cluster on NixOS, managed with Ansible and Helm.
+HA k3s cluster on NixOS, bootstrapped with Ansible and reconciled with ArgoCD.
 
 ## Notes
 
@@ -14,7 +14,6 @@ HA k3s cluster on NixOS, managed with Ansible and Helm.
 - [ ] TF For CF
 - [ ] Better support for custom dashboards
 - [ ] Better way of declaring plugin GH links for Grafana
-- [ ] Better helm install and manage flow
 - [x] Home Assistant + IoT network bridge
 
 
@@ -22,6 +21,7 @@ HA k3s cluster on NixOS, managed with Ansible and Helm.
 
 - **NixOS** - declarative OS configuration
 - **k3s** - lightweight Kubernetes
+- **ArgoCD** - GitOps reconciliation for cluster apps
 - **Cloudflare Tunnels** - zero-trust SSH and ingress access
 - **Longhorn** - distributed block storage
 - **kube-prometheus-stack** - Prometheus, Grafana, Alertmanager, node-exporter
@@ -38,7 +38,7 @@ cp group_vars/all.yml.example group_vars/all.yml
 ```
 
 Edit `hosts.yml` with node IPs and Cloudflare SSH tunnel tokens.  
-Edit `group_vars/all.yml` with `root_domain`, `k3s_token`, and `cloudflare_ingress_tunnel_token`.
+Edit `group_vars/all.yml` with `k3s_token`, `cloudflare_ingress_tunnel_token`, and any optional ArgoCD repo overrides.
 
 ### 2. Install NixOS
 
@@ -51,43 +51,37 @@ Per node:
 
 First node in `k8s_control_plane` is the cluster seed.
 
-### 3. Deploy Stack
+### 3. Bootstrap ArgoCD
 
 ```bash
 cd ansible
 
-# Storage (first)
-ansible-playbook playbooks/deploy-helm.yml -i inventory/hosts.yml -e helm_release=longhorn
-
-# Logging
-ansible-playbook playbooks/deploy-helm.yml -i inventory/hosts.yml -e helm_release=loki
-ansible-playbook playbooks/deploy-helm.yml -i inventory/hosts.yml -e helm_release=promtail
-
-# Monitoring
-ansible-playbook playbooks/deploy-helm.yml -i inventory/hosts.yml -e helm_release=kube-prometheus-stack
-
-# Cloudflare Tunnel
-ansible-playbook playbooks/deploy-cloudflare-ingress-tunnel.yml -i inventory/hosts.yml
+ansible-playbook playbooks/install-argocd.yml -i inventory/hosts.yml
 ```
+
+This installs ArgoCD, applies the upstream `AppProject` and root `Application`, and bootstraps the rest of the stack from Git. After this point, update Kubernetes apps by changing manifests or values in Git and letting ArgoCD sync them.
+
+If you want ArgoCD to track a private repo instead of upstream defaults, set `argocd_repo_url`, `argocd_target_revision`, and optional repo credentials in `group_vars/all.yml` before running the playbook.
+
+### 4. Operate Apps with GitOps
+
+- Edit values under `k8s/helm/<app>/values.yaml` or manifests under `k8s/`.
+- Commit and push those changes to the repo ArgoCD is tracking.
+- Let ArgoCD reconcile the cluster; no Ansible run is needed for app updates.
+
+Upstream ships fully usable ArgoCD applications pointing at this repo by default. A private repo can layer on top by patching `repoURL` and `targetRevision` to follow itself instead.
 
 ### Optional: Longhorn R2 Backups
 
-For **NEW** Longhorn deployments (recommended - declarative):
+For declarative Longhorn backups:
 ```bash
 # 1. Configure r2_* variables in ansible/inventory/group_vars/all.yml
-# 2. Create secret first
-ansible-playbook playbooks/create-longhorn-r2-secret.yml -i inventory/hosts.yml
-# 3. Edit k8s/helm/longhorn/values.yaml to uncomment and configure defaultBackupStore
-# 4. Deploy Longhorn
-ansible-playbook playbooks/deploy-helm.yml -i inventory/hosts.yml -e helm_release=longhorn
+# 2. Create the backup secret in your tracked repo or bootstrap it separately
+# 3. Edit k8s/helm/longhorn/values.yaml to configure defaultBackupStore
+# 4. Commit and push; ArgoCD will apply the Longhorn change
 ```
 
-For **EXISTING** Longhorn deployments (runtime configuration):
-```bash
-# 1. Configure r2_* variables in ansible/inventory/group_vars/all.yml
-# 2. Run runtime configuration (includes secret creation and proper waits)
-ansible-playbook playbooks/configure-longhorn-r2-backup.yml -i inventory/hosts.yml
-```
+Keep backup secrets out of Git unless your private repo already has a sealed/external secret flow.
 
 ### Optional: Home Network Bridge (IoT Access)
 
@@ -112,6 +106,8 @@ Update node config:
 ```bash
 ansible-playbook playbooks/nixos-update.yml -i inventory/hosts.yml
 ```
+
+ArgoCD-managed apps update from Git. Ansible is only for node lifecycle, bootstrap, and non-GitOps machine configuration.
 
 Reset k3s on a node (rejoin cluster):
 ```bash

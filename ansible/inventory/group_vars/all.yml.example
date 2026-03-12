@@ -3,6 +3,20 @@ cloudflare_ingress_tunnel_token: ""
 ssh_password_auth_enabled: true
 k3s_token: "your-super-secret-password"
 
+# Optional: ArgoCD bootstrap overrides
+# Uncomment to bootstrap from a private repo instead of upstream defaults
+# argocd_repo_url: "https://github.com/dhvcc/homelab.git"
+# argocd_target_revision: "main"
+#
+# Optional: repository auth for private ArgoCD bootstrap repos
+# Use either username/password or ssh private key
+# argocd_repo_username: ""
+# argocd_repo_password: ""
+# argocd_repo_ssh_private_key: |
+#   -----BEGIN OPENSSH PRIVATE KEY-----
+#   ...
+#   -----END OPENSSH PRIVATE KEY-----
+
 # Optional: Cloudflare R2 for Longhorn backups
 # Uncomment and configure if you want to use R2 as backup target
 # r2_access_key_id: ""

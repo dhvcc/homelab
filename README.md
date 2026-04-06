@@ -40,6 +40,11 @@ cp group_vars/all.yml.example group_vars/all.yml
 Edit `hosts.yml` with node IPs and Cloudflare SSH tunnel tokens.  
 Edit `group_vars/all.yml` with `k3s_token`, `cloudflare_ingress_tunnel_token`, and any optional ArgoCD repo overrides.
 
+For each control-plane node in `hosts.yml`:
+- `ansible_host` is only for operator access and SSH. It can be a Cloudflare/public hostname.
+- `k3s_address` is the node's control-plane/peer address used by k3s. Use a LAN IP or internal DNS name, not a public Cloudflare hostname.
+- `k3s_join_address` is optional. When set, non-seed nodes join that LAN/internal k3s endpoint instead of the seed node's `k3s_address`.
+
 ### 2. Install NixOS
 
 Per node:
@@ -50,6 +55,7 @@ Per node:
 5. Change password from default "changeme" set by the config
 
 First node in `k8s_control_plane` is the cluster seed.
+By default, other control-plane nodes join that seed via its `k3s_address`.
 
 ### 3. Bootstrap ArgoCD
 
@@ -108,6 +114,8 @@ ansible-playbook playbooks/nixos-update.yml -i inventory/hosts.yml
 ```
 
 ArgoCD-managed apps update from Git. Ansible is only for node lifecycle, bootstrap, and non-GitOps machine configuration.
+
+For control-plane recovery, make sure `k3s_address` and any `k3s_join_address` values stay on the LAN or internal DNS. Do not point k3s peer/bootstrap traffic at public Cloudflare hostnames from `ansible_host`.
 
 Reset k3s on a node (rejoin cluster):
 ```bash

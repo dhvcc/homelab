@@ -1,6 +1,7 @@
 { config, pkgs, lib, ... }:
 
-{%- set seed_address = hostvars[seed_host]['ansible_host'] %}
+{%- set seed_address = hostvars[seed_host].k3s_address | mandatory %}
+{%- set join_address = hostvars[inventory_hostname].k3s_join_address | default(seed_address) %}
 {%- set node_address = hostvars[inventory_hostname]['ansible_host'] %}
 {%- set is_seed = inventory_hostname == seed_host %}
 {%- set ssh_allowed_principals = hostvars[inventory_hostname].cloudflare_ssh_allowed_principals | default(cloudflare_ssh_allowed_principals | default([])) %}
@@ -8,7 +9,7 @@
 let
   hostname = "{{ inventory_hostname }}";
   nodeAddress = "{{ node_address }}";
-  seedAddress = "{{ seed_address }}";
+  joinAddress = "{{ join_address }}";
   isSeed = {{ 'true' if is_seed else 'false' }};
   sshPasswordAuthEnabled = {{ 'true' if ssh_password_auth_enabled | default(true) else 'false' }};
   cloudflareAccessSshCaPubkey = "{{ hostvars[inventory_hostname].cloudflare_ssh_ca_pubkey | default(cloudflare_ssh_ca_pubkey | default('')) }}";
@@ -89,6 +90,7 @@ in
     nfs-utils
     sysbench
     speedtest-cli
+    argocd
   ];
 
   # Longhorn requires iscsi binaries at standard FHS paths
@@ -105,6 +107,10 @@ in
   };
 
   boot.kernelModules = [ "iscsi_tcp" ];
+  boot.kernel.sysctl = {
+    "fs.inotify.max_user_watches" = 1048576;
+    "fs.inotify.max_user_instances" = 1024;
+  };
 
   environment.etc."rancher/k3s/token" = {
     text = "{{ k3s_token }}";
@@ -149,7 +155,11 @@ in
         "--tls-san=${hostname}"
         "--tls-san=${nodeAddress}"
       ]
-      ++ (if isSeed then [ "--cluster-init" ] else [ "--server https://${seedAddress}:6443" ]);
+      ++ (if isSeed then [ "--cluster-init" ] else [ "--server https://${joinAddress}:6443" ]);
+  };
+
+  systemd.services.k3s.serviceConfig = {
+    TimeoutStartSec = "15min";
   };
 
   boot.loader = {

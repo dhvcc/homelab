@@ -18,7 +18,7 @@ spec:
         valueFiles:
           - $values/k8s/helm/home-assistant/values.yaml
     - repoURL: https://github.com/dhvcc/homelab.git
-      targetRevision: main
+      targetRevision: master
       ref: values
   destination:
     server: https://kubernetes.default.svc

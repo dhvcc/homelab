@@ -9,7 +9,7 @@ spec:
   project: homelab
   source:
     repoURL: https://github.com/dhvcc/homelab.git
-    targetRevision: main
+    targetRevision: master
     path: k8s/argocd/apps
   destination:
     server: https://kubernetes.default.svc

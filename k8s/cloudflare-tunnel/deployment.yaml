@@ -39,6 +39,12 @@ spec:
             failureThreshold: 3
             initialDelaySeconds: 30
             periodSeconds: 30
+          startupProbe:
+            httpGet:
+              path: /ready
+              port: 2000
+            failureThreshold: 18
+            periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /ready

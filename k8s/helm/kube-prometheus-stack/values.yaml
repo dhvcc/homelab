@@ -113,14 +113,14 @@ prometheus:
     serviceMonitorSelectorNilUsesHelmValues: false
     serviceMonitorNamespaceSelector: {}
 
-    retention: 30d
+    retention: 14d
     storageSpec:
       volumeClaimTemplate:
         spec:
           accessModes: ["ReadWriteOnce"]
           resources:
             requests:
-              storage: 10Gi
+              storage: 25Gi
     additionalScrapeConfigs:
       - job_name: 'kubernetes-pods'
         kubernetes_sd_configs:
@@ -155,4 +155,3 @@ nodeExporter:
 
 prometheusOperator:
   enabled: true
-

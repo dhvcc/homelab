@@ -114,13 +114,14 @@ prometheus:
     serviceMonitorNamespaceSelector: {}
 
     retention: 14d
+    retentionSize: 28GiB
     storageSpec:
       volumeClaimTemplate:
         spec:
           accessModes: ["ReadWriteOnce"]
           resources:
             requests:
-              storage: 25Gi
+              storage: 35Gi
     additionalScrapeConfigs:
       - job_name: 'kubernetes-pods'
         kubernetes_sd_configs:

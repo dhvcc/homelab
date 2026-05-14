@@ -33,7 +33,7 @@ singleBinary:
       memory: 1536Mi
   persistence:
     enabled: true
-    size: 20Gi
+    size: 10Gi
 
 gateway:
   resources:

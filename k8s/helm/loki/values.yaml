@@ -24,9 +24,37 @@ loki:
 
 singleBinary:
   replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: 1
+      memory: 1536Mi
   persistence:
     enabled: true
     size: 10Gi
+
+gateway:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+lokiCanary:
+  enabled: false
+
+test:
+  enabled: false
+
+chunksCache:
+  enabled: false
+
+resultsCache:
+  enabled: false
 
 read:
   replicas: 0
@@ -36,6 +64,4 @@ write:
 
 backend:
   replicas: 0
-
-
 

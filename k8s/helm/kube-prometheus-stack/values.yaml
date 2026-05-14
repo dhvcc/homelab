@@ -4,6 +4,13 @@ alertmanager:
 grafana:
   enabled: true
   adminPassword: admin
+  resources:
+    requests:
+      cpu: 100m
+      memory: 192Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
   ingress:
     enabled: true
     ingressClassName: nginx
@@ -109,6 +116,13 @@ grafana:
 
 prometheus:
   prometheusSpec:
+    resources:
+      requests:
+        cpu: 250m
+        memory: 768Mi
+      limits:
+        cpu: 1500m
+        memory: 2Gi
     # Search for ServiceMonitors in all namespaces
     serviceMonitorSelectorNilUsesHelmValues: false
     serviceMonitorNamespaceSelector: {}
@@ -150,9 +164,31 @@ prometheus:
 
 kubeStateMetrics:
   enabled: true
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
 
 nodeExporter:
   enabled: true
 
 prometheusOperator:
   enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+  prometheusConfigReloader:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 32Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi

@@ -20,6 +20,14 @@ in
     ./hardware-configuration.nix
   ];
 
+  fileSystems = lib.mkIf (hostname == "optiplex") {
+    "/mnt/longhorn-nvme" = {
+      device = "/dev/disk/by-uuid/5a017509-b9ff-4982-9e18-07eec4f469f2";
+      fsType = "ext4";
+      options = [ "noatime" "nofail" ];
+    };
+  };
+
   system.stateVersion = "24.11";
   # time.timeZone = "UTC";
 

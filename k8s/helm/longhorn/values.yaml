@@ -10,6 +10,11 @@ defaultSettings:
   replicaSoftAntiAffinity: false
   replicaAutoBalance: "best-effort"
 
+defaultBackupStore:
+  backupTarget: "s3://longhorn-backups@auto/"
+  backupTargetCredentialSecret: "longhorn-r2-credentials"
+  pollInterval: 300
+
 persistence:
   defaultClass: true
   defaultClassReplicaCount: 2

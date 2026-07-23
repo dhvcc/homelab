@@ -1,4 +1,11 @@
 .env
+!.mise.toml
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+backend.hcl
 .vscode
 .DS_Store
 *.swp

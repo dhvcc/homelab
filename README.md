@@ -79,15 +79,22 @@ Upstream ships fully usable ArgoCD applications pointing at this repo by default
 
 ### Optional: Longhorn R2 Backups
 
-For declarative Longhorn backups:
+Longhorn backs up all volumes in the `default` recurring-job group to
+Cloudflare R2 every day at 02:15 UTC and retains seven backups per volume.
+
+Bootstrap the encrypted credential before ArgoCD applies the backup target:
+
 ```bash
-# 1. Configure r2_* variables in ansible/inventory/group_vars/all.yml
-# 2. Create the backup secret in your tracked repo or bootstrap it separately
-# 3. Edit k8s/helm/longhorn/values.yaml to configure defaultBackupStore
-# 4. Commit and push; ArgoCD will apply the Longhorn change
+cd ansible
+ANSIBLE_STDOUT_CALLBACK=default \
+uvx --from ansible-core ansible-playbook \
+  playbooks/apply-longhorn-r2-secret.yml \
+  -i inventory/hosts.yml
 ```
 
-Keep backup secrets out of Git unless your private repo already has a sealed/external secret flow.
+The encrypted secret is committed under `ansible/secrets/`; the age identity
+stays outside Git. Terraform under `terraform/cloudflare/r2/` manages the R2
+buckets.
 
 ### Optional: Home Network Bridge (IoT Access)
 

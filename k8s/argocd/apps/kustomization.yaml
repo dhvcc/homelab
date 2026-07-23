@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - coredns.yaml
   - longhorn.yaml
+  - longhorn-backup.yaml
   - loki.yaml
   - promtail.yaml
   - kube-prometheus-stack.yaml

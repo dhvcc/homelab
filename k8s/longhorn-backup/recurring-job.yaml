@@ -1,0 +1,16 @@
+apiVersion: longhorn.io/v1beta2
+kind: RecurringJob
+metadata:
+  name: r2-daily
+  namespace: longhorn-system
+spec:
+  cron: "15 2 * * *"
+  task: backup
+  groups:
+    - default
+  retain: 7
+  concurrency: 1
+  labels:
+    backup-target: r2
+  parameters:
+    full-backup-interval: "7"

@@ -1,0 +1,4 @@
+account_id = "your-cloudflare-account-id"
+
+longhorn_backup_bucket_name = "longhorn-backups"
+terraform_state_bucket_name = "homelab-terraform-state"

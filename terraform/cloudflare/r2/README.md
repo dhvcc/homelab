@@ -3,8 +3,8 @@
 This stack adopts the existing Longhorn backup bucket and creates a separate
 bucket for Terraform state.
 
-Authentication is read from `CLOUDFLARE_API_TOKEN`. The token needs only
-`Workers R2 Storage Write` for the target Cloudflare account.
+Authentication is read from `CLOUDFLARE_API_TOKEN` in the ignored root
+`.env`. The token permissions are documented in the repository root README.
 
 Copy `backend.hcl.example` to the ignored `backend.hcl` and replace
 `ACCOUNT_ID`. The S3 backend uses credentials derived from the same R2 API

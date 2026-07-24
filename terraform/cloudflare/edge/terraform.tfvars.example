@@ -1,0 +1,5 @@
+account_id            = "your-cloudflare-account-id"
+zone_id               = "your-cloudflare-zone-id"
+zone_name             = "example.com"
+admin_emails          = ["you@example.com"]
+identity_provider_ids = ["your-cloudflare-identity-provider-id"]

@@ -11,7 +11,8 @@ HA k3s cluster on NixOS, bootstrapped with Ansible and reconciled with ArgoCD.
 
 ## TODO
 - [ ] Fix loki-canary drop rules
-- [ ] TF For CF
+- [x] Terraform for Cloudflare R2 and the homelab edge
+- [ ] Move commercial routes to a separate Cloudflare Tunnel
 - [ ] Better support for custom dashboards
 - [ ] Better way of declaring plugin GH links for Grafana
 - [x] Home Assistant + IoT network bridge
@@ -95,6 +96,37 @@ uvx --from ansible-core ansible-playbook \
 The encrypted secret is committed under `ansible/secrets/`; the age identity
 stays outside Git. Terraform under `terraform/cloudflare/r2/` manages the R2
 buckets.
+
+### Cloudflare Terraform Credentials
+
+This personal homelab uses one scoped Terraform token for Cloudflare edge and
+R2. Create it under **Manage account > Account API tokens > Create a token >
+Custom**:
+
+1. Name it `homelab-terraform-edge`.
+2. Add an **Entire Account** policy with:
+   - `Access: Apps and Policies` — Write
+   - `Access: Groups` — Write
+   - `Cloudflare One Connector: cloudflared` — Write
+   - `Workers R2 Storage` — Write
+3. Add a **Specified Domains** policy for the homelab domain with:
+   - `DNS` — Write
+   - `Zone` — Read
+4. Leave IP filtering empty. A dynamic home IP would eventually lock
+   Terraform out.
+5. Use no expiration unless token rotation is automated.
+
+Save the value immediately after creation; Cloudflare only shows it once. Put
+it in the ignored root `.env`, never in Terraform variables, inventory, Git,
+shell history, or documentation:
+
+```bash
+CLOUDFLARE_API_TOKEN="..."
+```
+
+The token has no billing, account administration, identity provider, service
+token, or unrelated zone access. Splitting it further adds operational
+overhead without a useful security boundary for this single-user homelab.
 
 ### Optional: Home Network Bridge (IoT Access)
 
